@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 — 2026-10-16
+
+- LLM labels are opt-in. On first run the picker shows what would be sent, with a time and cost estimate for your
+  sessions, and asks once per workspace. `ticketrail label` asks in a terminal. `labeler.enabled` now defaults to
+  `"ask"`.
+- Fixed: on a machine without the `claude` CLI (Codex-only), the background labeler was started every minute and
+  failed. It now stays off, and the top bar says why.
+- README: animated demo, a 30-second quickstart, and the comparison moved below them. `scripts/make_demo.py` rebuilds
+  the demo from synthetic data.
+
 ## 0.1.0 — unreleased
 
 First public version. Sessions are organised into work items (one per ticket or topic) instead of plain session lists.

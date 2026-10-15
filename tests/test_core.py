@@ -364,6 +364,8 @@ class TestLabeler(SandboxTest):
         self.assertEqual(ok["n_prompts"], 8)
 
     def test_run_stops_after_max_consecutive_failures(self):
+        self.sb.cfg.labeler_setting = True
+        self.enterContext(mock.patch.object(L.shutil, "which", lambda c: "/bin/" + c))
         for i in range(5):
             p = self.sb.claude_session("%d0000000-0000-4000-8000-00000000000%d" % (i, i), ["prompt %d" % i])
             os.utime(p, (NOW - 7200, NOW - 7200))
@@ -379,9 +381,61 @@ class TestLabeler(SandboxTest):
         self.assertEqual(sum(1 for lb in labels.values() if lb.get("error")), L.MAX_FAILS)
 
     def test_disabled_labeler_never_calls_the_llm(self):
-        self.sb.cfg.labeler_enabled = False
+        self.sb.cfg.labeler_setting = False
         with mock.patch.object(L, "call_llm", side_effect=AssertionError("called")), mock.patch("sys.stderr"):
             L.run()
+
+    def which(self, present):
+        return mock.patch.object(L.shutil, "which", (lambda c: "/bin/" + c) if present else (lambda c: None))
+
+    def test_state_order_explicit_then_answer_then_ask(self):
+        with self.which(True):
+            self.assertEqual(L.state(), L.ASK)  # default: nothing decided ⇒ nothing is sent
+            L.set_consent(True)
+            self.assertEqual(L.state(), L.ON)
+            L.set_consent(False)
+            self.assertEqual(L.state(), L.OFF)
+            self.sb.cfg.labeler_setting = True  # explicit config wins over the stored answer
+            self.assertEqual(L.state(), L.ON)
+        self.sb.cfg.labeler_setting = False
+        with self.which(False):
+            self.assertEqual(L.state(), L.OFF)
+
+    def test_codex_only_machine_never_spawns_the_labeler(self):
+        from ticketrail.model import Model
+        self.sb.cfg.labeler_setting = True
+        with self.which(False):
+            self.assertEqual(L.state(), L.MISSING)
+            m = Model(load_sessions=lambda: [mk("a", mtime=NOW - 7200)], load_labels=lambda: {}, load_live=lambda: None)
+            with mock.patch.object(L, "spawn_background", side_effect=AssertionError("spawned")):
+                m.maybe_spawn()
+            self.assertFalse(m.should_ask_llm())
+
+    def test_nothing_is_spawned_before_consent(self):
+        from ticketrail.model import Model
+        with self.which(True):
+            m = Model(load_sessions=lambda: [mk("a", mtime=NOW - 7200)], load_labels=lambda: {}, load_live=lambda: None)
+            self.assertTrue(m.should_ask_llm())
+            with mock.patch.object(L, "spawn_background", side_effect=AssertionError("spawned")):
+                m.maybe_spawn()
+            spawned = []
+            with mock.patch.object(L, "spawn_background", lambda: spawned.append(1)):
+                m.answer_llm(True)
+                m.maybe_spawn()
+            self.assertEqual(spawned, [1])
+            self.assertEqual(json.load(open(self.sb.cfg.consent_file))["labeler"], True)
+            no = Model(no_llm=True, load_sessions=lambda: [mk("a", mtime=NOW - 7200)], load_labels=lambda: {}, load_live=lambda: None)
+            self.assertFalse(no.should_ask_llm())  # --no-llm never asks
+
+    def test_label_command_without_a_terminal_refuses(self):
+        with self.which(True), mock.patch.object(L.sys.stdin, "isatty", lambda: False), \
+                mock.patch.object(L, "call_llm", side_effect=AssertionError("called")), mock.patch("sys.stderr") as err:
+            L.run()
+        self.assertFalse(os.path.exists(self.sb.cfg.consent_file))
+
+    def test_estimate(self):
+        self.assertEqual(L.estimate(250), (28, 250 * L.USD_PER_SESSION))
+        self.assertEqual(L.estimate(1)[0], 1)
 
     def test_background_labeler_keeps_root_and_language(self):
         self.sb.cfg.lang = "vi"
@@ -612,7 +666,7 @@ class TestConfig(unittest.TestCase):
 
     def test_typos_and_wrong_types_are_errors(self):
         for bad in ({"ticket": {}}, {"tickets": {"patterns": "SHOP"}}, {"open": {"large_session_mb": "big"}},
-                    {"labeler": {"enabled": "yes"}}, {"lang": "fr"}, {"handoff": {"prompt": "go {where}"}}, {"handoff": {"max_sessions": 0}},
+                    {"labeler": {"enabled": "yes"}}, {"labeler": {"enabled": 1}}, {"lang": "fr"}, {"handoff": {"prompt": "go {where}"}}, {"handoff": {"max_sessions": 0}},
                     {"open": {"editor": "vim +{lin} {path}"}}):
             with self.assertRaises(config.ConfigError, msg=bad):
                 config.Config(root=self.sb.base, data=config.deep_merge(config.DEFAULTS, bad))

@@ -8,25 +8,36 @@
 workspace into **work items**, one per ticket or topic. For each item it tells you whether the work is done, still in
 progress, or waiting, and on whom it is waiting. It reopens the right session with one key.
 
+![ticketrail: work items with their status, links, and a hand-off to Codex](https://raw.githubusercontent.com/lethequang/ticketrail/main/docs/images/demo.gif)
+
+## Quickstart
+
+```sh
+uv tool install ticketrail      # or: pipx install ticketrail
+cd your-repo                    # any directory where you ran Claude Code or Codex
+ticketrail
+```
+
+Nothing is sent anywhere until you say so: on first run ticketrail asks before using an LLM to label sessions.
+
+## What it does
+
 After a few weeks with coding agents, one ticket is spread over five to ten sessions, often across both agents:
 investigation, code, tests, docs, follow-ups. The questions that matter are about the *work*, not the sessions:
-"is SHOP-142 done?", "what are we waiting for on the search bug?", "which session has the real fix?". `ticketrail`
-answers them in the terminal, locally.
+"is SHOP-142 done?", "what are we waiting for on the search bug?", "which session has the real fix?".
 
 - **Work items, not session lists.** Sessions from Claude Code and Codex are gathered by ticket key, using:
   - the session name;
   - the title;
   - the git branch;
   - mentions in the prompts.
-  Sessions without a ticket go under a topic named by a cheap LLM call. You can move or merge anything by hand.
-- **Status of the work, with a reason.** For example "⏳ waiting on others — QA retest on staging", or "✓ done", which
+  Sessions without a ticket can get a topic from a cheap LLM call (opt-in). You can move or merge anything by hand.
+- **Status of the work, with a reason.** For example "⏳ waiting on others — QA retest on staging", or "✓ done". "Done"
   can be confirmed by a merged pull request when the repository is on GitHub (opt-in).
-- **What each item left behind.** Tickets, docs, plans, artifacts and changelog entries that cite the session. All of
-  them are clickable, and Markdown can be previewed in place.
+- **What each item left behind.** Tickets, PRs, docs, plans, artifacts and changelog entries that cite the session.
+  All of them are clickable, and Markdown can be previewed in place.
 - **Pick up where it stopped.** Resume or fork any session. Or start a new one, Claude or Codex, whose first prompt
   already summarises every earlier session of the work item.
-
-[![Work items, their sessions, and the work item summary](https://raw.githubusercontent.com/lethequang/ticketrail/main/docs/images/picker-group.svg)](https://raw.githubusercontent.com/lethequang/ticketrail/main/docs/images/picker-group.svg)
 
 ## How it differs
 
@@ -47,10 +58,7 @@ tools above.
 ## Install
 
 Requires Python ≥ 3.11 on macOS or Linux. Install it as a tool, so it gets its own environment:
-
-```sh
-uv tool install ticketrail      # or: pipx install ticketrail
-```
+`uv tool install ticketrail` or `pipx install ticketrail`.
 
 Straight from GitHub: `uv tool install git+https://github.com/lethequang/ticketrail`.
 From a clone, for development: `uv tool install -e .`
@@ -102,6 +110,8 @@ The bottom pane depends on which pane has focus:
 - **Sessions pane:** the details of one session.
 
 Links are clickable.
+
+[![Work items, their sessions, and the work item summary](https://raw.githubusercontent.com/lethequang/ticketrail/main/docs/images/picker-group.svg)](https://raw.githubusercontent.com/lethequang/ticketrail/main/docs/images/picker-group.svg)
 
 ## How sessions become work items
 
@@ -157,14 +167,15 @@ All keys and more examples (Jira, GitHub issues, Linear) are in
 Everything runs locally. The tool reads transcripts and never changes them. Caches are kept in
 `~/.cache/ticketrail/`.
 
-Data leaves your machine in three opt-out or opt-in cases only:
+Data leaves your machine only in these cases, each of which you choose:
 
-- **the labeler** (on by default, turn it off with `labeler.enabled = false` or `--no-llm`);
-- `gh pr list` when you enable `github.pull_requests`;
-- a hand-off to **Codex**, whose first prompt carries the summaries of the item's earlier sessions, including Claude
+- **LLM labels.** On first run the picker asks before labeling anything; the answer is kept per workspace. Set
+  `labeler.enabled = true` or `false` to decide in config, or run with `--no-llm` to keep it off for a run.
+- **Pull requests.** `gh pr list` runs when you enable `github.pull_requests`.
+- **Hand-off to Codex.** Its first prompt carries the summaries of the item's earlier sessions, including Claude
   sessions, to your Codex provider.
 
-For each session, the labeler sends the following through your own `claude` CLI login:
+For each session, the labeler sends the following through your own `claude` CLI login (Claude Haiku by default):
 
 - the session name;
 - its tickets;
@@ -174,7 +185,14 @@ For each session, the labeler sends the following through your own `claude` CLI 
 - the topic names already used in this workspace;
 - `labeler.context`, if you set it.
 
-Turn it off with `labeler.enabled = false` or `--no-llm`. See [docs/privacy.md](docs/privacy.md).
+**Cost and time.** Measured averages are about 6.5 s and $0.0006 per session, run one at a time in the background.
+A first pass over 250 sessions takes about half an hour and costs about $0.15. After that, only new or grown sessions
+are labeled. The consent dialog shows the estimate for your own queue.
+
+**Codex only?** Labels need the `claude` CLI. Without it, the labeler stays off and never retries. Sessions are still
+grouped by ticket key (name, title, branch, mentions) and by your manual changes, and the status column stays empty.
+
+See [docs/privacy.md](docs/privacy.md) for every file read or written.
 
 ## Development
 

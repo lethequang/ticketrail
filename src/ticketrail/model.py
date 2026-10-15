@@ -21,7 +21,8 @@ class Model:
     """load() only reads disk and returns a snapshot (safe in a worker thread); apply() installs a snapshot."""
 
     def __init__(self, no_llm=False, load_sessions=None, load_labels=None, load_live=None, load_prs=None):
-        self.no_llm = no_llm or not config.current().labeler_enabled
+        self.no_llm = no_llm  # --no-llm: never label, never ask
+        self.llm_state = L.state()
         self._load_sessions = load_sessions or digests.load_sessions
         self._load_labels = load_labels or L.load_labels
         self._load_live = load_live or LV.claude_live
@@ -89,11 +90,21 @@ class Model:
 
     def maybe_spawn(self):
         """Background labeler for new idle sessions."""
-        if self.no_llm or self.running or not self.queue or time.time() - self.last_spawn < SPAWN_EVERY_SEC:
+        if not self.llm_on() or self.running or not self.queue or time.time() - self.last_spawn < SPAWN_EVERY_SEC:
             return
         self.last_spawn = time.time()
         L.spawn_background()
         self.running = True
+
+    def llm_on(self):
+        return not self.no_llm and self.llm_state == L.ON
+
+    def should_ask_llm(self):
+        return not self.no_llm and self.llm_state == L.ASK and bool(self.queue)
+
+    def answer_llm(self, yes):
+        L.set_consent(yes)
+        self.llm_state = L.state()
 
     # --- filters ---
     def live_state(self, sid):

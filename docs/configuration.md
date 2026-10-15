@@ -122,7 +122,7 @@ Session: aaaa1111
 
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `true` | `false` turns all LLM calls off. Grouping then uses tickets and manual overrides only. |
+| `enabled` | `"ask"` | `"ask"`: the picker asks once, on first run, and keeps the answer for this workspace (`ticketrail label` asks in a terminal). `true` / `false` decide in config and win over that answer. Off, or without the `claude` CLI, grouping uses tickets, branches and manual changes only. |
 | `command` | `"claude"` | The Claude Code CLI binary. It is called in print mode. |
 | `model` | `"haiku"` | Model alias passed to `--model`. |
 | `context` | `""` | One or two sentences about the workspace. They help the model name topics consistently. |

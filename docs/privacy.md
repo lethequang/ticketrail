@@ -16,6 +16,7 @@ Transcripts are never modified.
 |---|---|---|
 | Digest cache | `~/.cache/ticketrail/<workspace>/digests.json` | Per session: prompts (≤ 200 chars each), titles, tickets, written file paths, last answer (≤ 1500 chars) |
 | Labels | `~/.cache/ticketrail/<workspace>/labels.json` | Topic, title, role, status, summary, next step |
+| Consent | `~/.cache/ticketrail/<workspace>/consent.json` | Your answer to "label sessions with an LLM?" and when you gave it |
 | Labeler log | `~/.cache/ticketrail/<workspace>/labeler.log` | One line per labeled session (id, topic, title) and the CLI's error output |
 | Manual groups | `paths.groups_file` (in the workspace) | Group renames, merges, moved session ids, pinned sessions; no transcript content |
 | Index | `paths.index_file`, only when you run `index` | Session ids, names, first prompts |
@@ -47,7 +48,10 @@ and with `--no-session-persistence`. It therefore cannot touch your files, and i
 
 Caches and labels are kept per workspace: topics of one workspace are never sent while labeling another.
 
-Turn it off for a workspace with `labeler.enabled = false`, or per run with `ticketrail pick --no-llm`. Grouping
+Nothing is sent before you agree. On first run the picker shows what would be sent and an estimate (about 6.5 s and
+$0.0006 per session, measured), then keeps your answer for the workspace. Without the `claude` CLI the labeler stays
+off. You can also decide in config with `labeler.enabled = false` (or `true`), or per run with
+`ticketrail pick --no-llm`. Grouping
 then relies on tickets and manual overrides.
 
 With `github.pull_requests = true`, `gh pr list` is called in the workspace with your GitHub CLI login, at most once

@@ -18,7 +18,7 @@ from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, Markdown, OptionList, Static, TextArea
 from textual.widgets.option_list import Option
 
-from .. import config, groups as G
+from .. import config, groups as G, labeler as L
 from ..digests import title_of
 from ..i18n import t
 from ..links import Link, handoff_cmd, is_url, md_section, resume_cmd, session_cwd
@@ -191,6 +191,26 @@ class PickAgent(ModalScreen):
 
     def action_pick(self, v):
         self.dismiss(v or None)
+
+
+class AskLabeler(ModalScreen):
+    """First run: ask before any session data goes to an LLM. The answer is kept for this workspace."""
+    BINDINGS = [Binding("y", "answer(True)", "yes"), Binding("n,escape", "answer(False)", "no")]
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+
+    def compose(self):
+        minutes, usd = L.estimate(self.n)
+        with Vertical(classes="dialog wide"):
+            yield Static(t("consent.title"), classes="dlg-title")
+            yield Static(Text(t("consent.body", what=t("consent.what"), n=self.n, min=minutes, usd="%.2f" % usd)))
+            yield Static(Text.assemble(("y", "bold"), " " + t("consent.yes") + " · ", ("n", "bold"), " " + t("consent.no")),
+                         classes="hint")
+
+    def action_answer(self, yes):
+        self.dismiss(yes)
 
 
 class AskText(ModalScreen):
@@ -471,7 +491,15 @@ class Picker(App):
         self.refresh_all()  # fill now so early key presses never hit an empty table
         self.call_after_refresh(self.refresh_all)  # and again once the real width is known (flexible name column)
         self.set_interval(RELOAD_SEC, self.tick)
+        if self.model.should_ask_llm():
+            self.push_screen(AskLabeler(self.model.queue), self.on_llm_answer)
+        else:
+            self.model.maybe_spawn()
+
+    def on_llm_answer(self, yes):
+        self.model.answer_llm(bool(yes))
         self.model.maybe_spawn()
+        self.render_topbar()
 
     # --- data ---
     loading = False
@@ -511,6 +539,8 @@ class Picker(App):
         n_lab = sum(1 for d in m.sessions if d["id"] in m.labels)
         if m.no_llm:
             lab = t("top.no_llm")
+        elif m.llm_state != L.ON:
+            lab = t("top.llm_" + m.llm_state, cmd=config.current().labeler_command)
         else:
             lab = t("top.labels", n=n_lab, total=len(m.sessions)) + (
                 " · " + t("top.labeling") if m.running else (" · " + t("top.queue", n=m.queue) if m.queue else ""))

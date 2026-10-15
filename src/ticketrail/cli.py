@@ -316,11 +316,12 @@ def cmd_doctor(args):
         g = shutil.which("gh")
         n = len(signals.github_prs(wait=True)["heads"]) if g else 0
         line(True if g and n else False, "github pull requests", "%d branches with PRs" % n if g else "gh not found — install the GitHub CLI or set github.pull_requests = false")
-    if cfg.labeler_enabled:
-        p = shutil.which(cfg.labeler_command)
-        line(True if p else False, "labeler command", p or "%s not found — set labeler.enabled = false" % cfg.labeler_command)
-    else:
-        line(None, "labeler", "disabled")
+    st = L.state()
+    line({"on": True, "off": None, "ask": None, "missing": None}[st], "LLM labels", {
+        "on": "on (%s)" % shutil.which(cfg.labeler_command),
+        "off": "off",
+        "ask": "not decided yet — the picker asks on first run (or set labeler.enabled)",
+        "missing": "%s not found: grouping uses tickets, branches and manual changes only" % cfg.labeler_command}[st])
     line(True, "cache", cfg.cache_dir)
     labels = L.load_labels()
     line(True, "labels", str(len(labels)))

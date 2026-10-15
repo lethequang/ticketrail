@@ -275,6 +275,29 @@ class TestPullRequestStatus(AsyncSandboxTest):
             self.assertIn("#42 merged", txt)  # PR link in the work item's links
 
 
+class TestConsent(AsyncSandboxTest):
+    async def test_first_run_asks_once_and_remembers(self):
+        from ticketrail import labeler as L
+        S = fixtures()
+        with mock.patch.object(L.shutil, "which", lambda c: "/bin/" + c), mock.patch.object(L, "spawn_background", lambda: None):
+            model = Model(load_sessions=lambda: [dict(d, mtime=NOW - 7200) for d in S], load_labels=lambda: {},
+                          load_live=lambda: None)
+            app = P.Picker(model, "")
+            async with app.run_test(size=(140, 40)) as pilot:
+                await pilot.pause()
+                self.assertIsInstance(app.screen, P.AskLabeler)
+                self.assertIn("6 sessions", str(app.screen.query(P.Static)[1].render()))
+                await pilot.press("n")
+                await pilot.pause()
+                self.assertNotIsInstance(app.screen, P.AskLabeler)
+                self.assertIn("LLM labels off", str(app.query_one("#topbar").render()))
+            again = P.Picker(Model(load_sessions=lambda: [dict(d, mtime=NOW - 7200) for d in S], load_labels=lambda: {},
+                                   load_live=lambda: None), "")
+            async with again.run_test(size=(140, 40)) as pilot:
+                await pilot.pause()
+                self.assertNotIsInstance(again.screen, P.AskLabeler)  # answered once: never asked again
+
+
 class TestDetail(AsyncSandboxTest):
     """Detail pane: group summary, clickable links, preview, key session, all prompts, status."""
 

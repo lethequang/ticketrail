@@ -44,7 +44,8 @@ DEFAULTS = {
         "ignore": [r"/scratchpad/", r"/plans/", r"/MEMORY\.md$", r"/\.ticketrail/"],
         "hub_max": 4,
     },
-    "labeler": {"enabled": True, "command": "claude", "model": "haiku", "context": ""},
+    # enabled: "ask" = ask once on first run (the answer is kept per workspace); true / false = decided in config
+    "labeler": {"enabled": "ask", "command": "claude", "model": "haiku", "context": ""},
     "open": {"large_session_mb": 5, "editor": "code -g {path}:{line}"},
     "github": {"pull_requests": False},  # confirm "done" with merged PRs via `gh` (network; opt-in)
     "handoff": {
@@ -78,6 +79,10 @@ def validate(data, schema=DEFAULTS, where=""):
         if k not in schema:
             raise ConfigError("unknown key %s (see docs/configuration.md)" % name)
         ref = schema[k]
+        if name == "labeler.enabled":
+            if v is not True and v is not False and v != "ask":
+                raise ConfigError('labeler.enabled: expected true, false or "ask"')
+            continue
         if isinstance(ref, dict):
             validate(v, ref, name + ".")
         elif isinstance(ref, list):
@@ -240,7 +245,7 @@ class Config:
         self.single_entry_dirs = list(b.get("single_entry_dirs") or [])
         self.hub_max = int(d["related"].get("hub_max", 4))
         lab = d["labeler"]
-        self.labeler_enabled = bool(lab.get("enabled", True))
+        self.labeler_setting = lab.get("enabled", "ask")  # True / False / "ask" — see labeler.state()
         self.labeler_command = lab.get("command") or "claude"
         self.labeler_model = lab.get("model") or "haiku"
         self.labeler_context = lab.get("context") or ""
@@ -267,6 +272,7 @@ class Config:
         self.cache_dir = os.path.join(cache_home(), "ticketrail", slug)
         self.digest_cache = os.path.join(self.cache_dir, "digests.json")
         self.labels_file = os.path.join(self.cache_dir, "labels.json")
+        self.consent_file = os.path.join(self.cache_dir, "consent.json")
         self.labeler_dir = os.path.join(self.cache_dir, "labeler")
         self.labeler_lock = os.path.join(self.cache_dir, "labeler.lock")
         self.labeler_log = os.path.join(self.cache_dir, "labeler.log")

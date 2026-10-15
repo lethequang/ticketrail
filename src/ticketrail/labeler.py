@@ -8,8 +8,10 @@ from __future__ import annotations
 import collections
 import fcntl
 import json
+import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -27,6 +29,32 @@ LABEL_VER = 1
 ROLES = ["research", "code", "test", "docs", "ops", "env", "qa"]
 STATUSES = ["done", "in_progress", "waiting", "abandoned"]
 LANG_NAME = {"en": "English", "vi": "Vietnamese"}
+SEC_PER_SESSION = 6.5     # measured: one Haiku call through `claude -p`, sequential
+USD_PER_SESSION = 0.0006  # measured on real sessions (prompt ≈ 10 prompts + final answer)
+ON, OFF, ASK, MISSING = "on", "off", "ask", "missing"
+
+
+def state():
+    """on / off / ask (not decided yet: nothing is ever sent) / missing (no `claude` CLI, e.g. Codex-only users).
+    An explicit `labeler.enabled` in the config wins over the answer given on first run."""
+    cfg = config.current()
+    if cfg.labeler_setting is False:
+        return OFF
+    if not shutil.which(cfg.labeler_command):
+        return MISSING
+    if cfg.labeler_setting is True:
+        return ON
+    answer = read_json(cfg.consent_file, {}).get("labeler")
+    return ON if answer is True else OFF if answer is False else ASK
+
+
+def set_consent(value):
+    write_json(config.current().consent_file, {"labeler": bool(value), "at": int(time.time())})
+
+
+def estimate(n):
+    """(minutes, dollars) to label n sessions, from measured averages; shown before asking."""
+    return max(1, math.ceil(n * SEC_PER_SESSION / 60)), n * USD_PER_SESSION
 
 
 def load_labels():
@@ -159,9 +187,23 @@ def call_llm(prompt):
 
 def run(limit=0, retry_errors=False):
     cfg = config.current()
-    if not cfg.labeler_enabled:
+    st = state()
+    if st == MISSING:
+        print(t("lab.missing", cmd=cfg.labeler_command), file=sys.stderr)
+        return
+    if st == OFF:
         print(t("lab.disabled"), file=sys.stderr)
         return
+    if st == ASK:
+        if not sys.stdin.isatty():
+            print(t("lab.ask_first"), file=sys.stderr)
+            return
+        n = len(label_queue(load_sessions(), load_labels(), retry_errors=retry_errors))
+        minutes, usd = estimate(n)
+        answer = input(t("lab.prompt", what=t("consent.what"), n=n, min=minutes, usd="%.2f" % usd) + " [y/N] ")
+        set_consent(answer.strip().lower() in ("y", "yes"))
+        if state() != ON:
+            return
     os.makedirs(cfg.cache_dir, exist_ok=True)
     with open(cfg.labeler_lock, "a") as lockf:  # the lock lives as long as the file stays open
         try:
