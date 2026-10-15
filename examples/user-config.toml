@@ -1,0 +1,21 @@
+# ~/.config/ticketrail/config.toml — settings for every workspace, plus per-workspace tables.
+# Useful to configure a repository without adding a file to it.
+
+[defaults]
+lang = "en"
+[defaults.labeler]
+model = "haiku"
+
+[workspace."~/code/shop"]
+lang = "vi"
+[workspace."~/code/shop".tickets]
+patterns = ['\bSHOP-\d+\b']
+url = "https://yourcompany.atlassian.net/browse/{key}"
+[workspace."~/code/shop".paths]
+groups_file = "docs/session-groups.json"
+index_file = "docs/SESSIONS.md"
+[workspace."~/code/shop".handoff]
+prompt = "/resume-task {subject}"
+
+[workspace."~/code/private-notes".labeler]
+enabled = false        # never send anything from this workspace to an LLM

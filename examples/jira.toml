@@ -1,0 +1,15 @@
+# .ticketrail.toml — a workspace tracked in Jira, with two projects and no-ticket tags
+lang = "en"
+
+[tickets]
+patterns = ['\b(?:SHOP|OPS)-\d+\b']
+url = "https://yourcompany.atlassian.net/browse/{key}"
+
+[naming]
+tags = ["OPS", "DOC", "ENV", "QA"]
+
+[related]
+ignore = ['/scratchpad/', '/plans/', '_CHANGELOG\.md$', '/MEMORY\.md$', '/\.ticketrail/']
+
+[labeler]
+context = "An online shop: checkout, search, payments, a mobile app and the data pipeline."

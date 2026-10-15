@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ticketrail"
+dynamic = ["version"]
+description = "A work tracker for coding-agent sessions: Claude Code and Codex CLI sessions grouped by ticket, with work status, links and resume — in the terminal."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Lê Thế Quang", email = "lethequang565@gmail.com" }]
+keywords = ["claude-code", "codex", "ai-agents", "sessions", "tui", "textual"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+]
+dependencies = ["textual>=8.2,<9"]
+
+[project.urls]
+Homepage = "https://github.com/lethequang/ticketrail"
+Repository = "https://github.com/lethequang/ticketrail"
+Issues = "https://github.com/lethequang/ticketrail/issues"
+Changelog = "https://github.com/lethequang/ticketrail/blob/main/CHANGELOG.md"
+
+[project.scripts]
+ticketrail = "ticketrail.cli:main"
+
+[tool.hatch.version]
+path = "src/ticketrail/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ticketrail"]

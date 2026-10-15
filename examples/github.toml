@@ -1,0 +1,10 @@
+# .ticketrail.toml — an open-source repository tracked in GitHub issues
+[tickets]
+patterns = ['(?<![\w/])#\d+\b']
+url = "https://github.com/acme/widget/issues/{num}"
+
+[labeler]
+context = "A Python library for rendering widgets in the terminal."
+
+[github]
+pull_requests = true   # a work item whose PRs are merged shows as done (uses `gh`, cached 5 minutes)
