@@ -1,0 +1,21 @@
+name: Support another agent
+description: Ask ticketrail to read sessions of another coding agent (Gemini CLI, OpenCode, Cursor…)
+labels: [agent]
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      placeholder: "Gemini CLI 0.9"
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where it stores sessions
+      description: Directory and file format, if you know them (e.g. ~/.gemini/tmp/<hash>/chats/*.json). Do not attach real transcripts.
+  - type: textarea
+    id: resume
+    attributes:
+      label: How to resume or fork a session from the command line
+      placeholder: "gemini --resume <id>"
